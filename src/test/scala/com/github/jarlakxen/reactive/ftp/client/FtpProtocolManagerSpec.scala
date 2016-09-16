@@ -37,7 +37,7 @@ class FtpProtocolManagerSpec extends TestKit(ActorSystem("FtpProtocolManagerSpec
 
   "FtpProtocolManager" >> {
     "connect and disconnect" in new FTPContext("user", "password") {
-      val client = system.actorOf(Props[FtpProtocolManager])
+      val client = FtpClient()
 
       client ! FtpClient.Connect("localhost", ftpPort, "user", "password")
 
@@ -50,7 +50,7 @@ class FtpProtocolManagerSpec extends TestKit(ActorSystem("FtpProtocolManagerSpec
     }
 
     "connect, list and disconnect" in new FTPContext("user", "password", FTPFile("File1.txt"), FTPFile("File2.txt", Some("something")), FTPDir("somedir")) {
-      val client = system.actorOf(Props[FtpProtocolManager])
+      val client = FtpClient()
 
       client ! FtpClient.Connect("localhost", ftpPort, "user", "password")
 
@@ -67,7 +67,7 @@ class FtpProtocolManagerSpec extends TestKit(ActorSystem("FtpProtocolManagerSpec
     }
 
     "connect, download and disconnect" in new FTPContext("user", "password", FTPFile("File1.txt"), FTPFile("File2.txt", Some("something"))) {
-      val client = system.actorOf(Props[FtpProtocolManager])
+      val client = FtpClient()
 
       client ! FtpClient.Connect("localhost", ftpPort, "user", "password")
 
