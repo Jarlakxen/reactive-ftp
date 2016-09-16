@@ -33,6 +33,10 @@ class FtpConnection(val addr: InetSocketAddress) extends FSM[FtpConnection.State
           log.debug(s"Received multiline $rawCode $rawMessage")
           goto(ReceiveMulti) using MultiData(ctx.connection, new StringBuffer(rawMessage))
         }
+        case other => {
+          log.error(s"Unexpected message $other.")
+          stay()
+        }
       }
     }
     case Event(Request(line), ctx: PlainData) => {

@@ -43,7 +43,7 @@ val akkaV           = "2.4.10"
 val mockFtpServerV  = "2.6"
 val slf4JV          = "1.7.21"
 val logbackV        = "1.1.7"
-val spec2V          = "3.8.4"
+val spec2V          = "3.8.5"
 val jUnitV          = "4.12"
 
 libraryDependencies ++= Seq(

@@ -56,6 +56,7 @@ class FtpFilesPublisher(
     case FtpClient.DirListing(entries) =>
       val files = entries.collect { case entry: FileInfo if filePattern.pattern.matcher(entry.name).matches() => entry }
       unstashAll()
+      log.debug(s"Files to process: ${files.map(_.name).mkString("; ")}.")
       context.become(ready(files))
     case FtpClient.DirFail =>
       onErrorThenStop(new RuntimeException(s"Cannot list target directory $basePath."))
@@ -68,7 +69,10 @@ class FtpFilesPublisher(
       log.debug(s"Requesting $requestedElements elements")
       val (filesToGet, pendingFiles) = files.splitAt(requestedElements.toInt)
       askForContent(filesToGet)
-      context.become(ready(pendingFiles))
+      if (pendingFiles.nonEmpty)
+        context.become(ready(pendingFiles))
+      else
+        onCompleteThenStop()
 
     case ActorPublisherMessage.Cancel | ActorPublisherMessage.SubscriptionTimeoutExceeded =>
       log.debug("Canceling streaming")
@@ -92,14 +96,16 @@ class FtpFileDownloadPublisher(client: ActorRef, basePath: String, file: FileInf
 
   override def receive: Receive = {
     case ActorPublisherMessage.Request(_) =>
-      log.debug(s"Start download.")
+      log.debug(s"Initializing download for ${file.name}.")
       client ! FtpClient.Download((if (basePath endsWith "/") basePath else basePath + "/") + file.name)
       context.become(awaitForContent)
   }
 
   def awaitForContent: Receive = {
     case FtpClient.DownloadInProgress(stream) =>
+      log.debug(s"Download for ${file.name} is in progress.")
       onNext(stream)
+      context.become(awaitForComplete)
 
     case FtpClient.DownloadFail =>
       onErrorThenStop(new RuntimeException(s"Cannot download file ${file.name} in $basePath."))
@@ -107,6 +113,7 @@ class FtpFileDownloadPublisher(client: ActorRef, basePath: String, file: FileInf
 
   def awaitForComplete: Receive = {
     case FtpClient.DownloadSuccess =>
+      log.debug(s"Finished download fro ${file.name}.")
       onCompleteThenStop()
 
     case FtpClient.DownloadFail =>

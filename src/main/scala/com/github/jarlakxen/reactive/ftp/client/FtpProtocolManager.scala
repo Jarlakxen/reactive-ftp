@@ -143,7 +143,7 @@ class FtpProtocolManager extends FSM[FtpProtocolManager.State, FtpProtocolManage
     case Event(FtpConnection.Response(code, message), TransferContext(_, path, Some(addr), _)) if code == 150 => {
       Source.repeat(ByteString.empty).via(Tcp().outgoingConnection(addr)).toMat(Sink.fold(ByteString.empty)(_ ++ _))(Keep.right).run().andThen {
         case Success(data) =>
-          log.debug("Sending incoming transfer file to parent.")
+          log.debug("Processing incoming data.")
           self ! TransferBytes(data)
         case Failure(ex) =>
           log.error(ex, s"Fail to transfer data when listing directory '$path'")
@@ -162,7 +162,7 @@ class FtpProtocolManager extends FSM[FtpProtocolManager.State, FtpProtocolManage
         case FtpClient.ListPattern(mode, inodes, user, group, size, month, day, timeOrYear, name) if mode startsWith "d" =>
           FtpClient.DirInfo(name, size.toLong, user, group, mode.substring(1))
       }
-      log.debug(s"Listing directory ${ctx.path}: ${files.mkString}")
+      log.debug(s"""Listing directory "${ctx.path}": ${files.mkString("; ")}""")
       ctx.replayTo ! FtpClient.DirListing(files)
       unstashAll()
       goto(Active) using ConnectionContext(ctx.connection)
