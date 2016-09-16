@@ -1,0 +1,41 @@
+*.class
+*.log
+
+# SBT Specific
+.cache
+.cache-main
+.cache-tests
+.history
+.lib/
+dist/*
+target/
+lib_managed/
+src_managed/
+project/boot/
+project/plugins/project/
+project/project
+project/target
+
+# Common
+logs/
+bin/
+
+# Scala-IDE specific
+.scala_dependencies
+.worksheet
+
+
+
+# Eclipse IDE
+.project
+.classpath
+.settings
+target/
+
+# IntelliJ IDE
+.idea/
+*.iml
+syntax: re
+#foo.*
+.log
+.DS_Store
