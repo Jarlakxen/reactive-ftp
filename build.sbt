@@ -39,9 +39,10 @@ scalacOptions in Test ++= Seq("-Yrangepos")
 val akkaV           = "2.4.17"
 val mockFtpServerV  = "2.7.1"
 val slf4JV          = "1.7.21"
-val logbackV        = "1.2.1"
-val dockerTestKitV  = "0.9.0"
-val spec2V          = "3.8.8"
+val logbackV        = "1.2.2"
+val commonsNetV     = "3.6"
+val dockerTestKitV  = "0.9.1"
+val spec2V          = "3.8.9"
 val jUnitV          = "4.12"
 
 libraryDependencies ++= Seq(
@@ -51,10 +52,10 @@ libraryDependencies ++= Seq(
   // --- Testing ---
   "ch.qos.logback"                %  "logback-classic"                    % logbackV        % "test",
   "org.mockftpserver"             %  "MockFtpServer"                      % mockFtpServerV  % "test",
+  "commons-net"                   %  "commons-net"                        % commonsNetV     % "test",
   "com.whisk"                     %% "docker-testkit-specs2"              % dockerTestKitV  % "test",
   "com.whisk"                     %% "docker-testkit-impl-spotify"        % dockerTestKitV  % "test",
   "com.typesafe.akka"             %% "akka-stream-testkit"                % akkaV           % "test",
   "org.specs2"                    %% "specs2-core"                        % spec2V          % "test",
-  "org.specs2"                    %% "specs2-mock"                        % spec2V          % "test",
   "org.specs2"                    %% "specs2-junit"                       % spec2V          % "test"
 )

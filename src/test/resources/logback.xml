@@ -1,13 +1,13 @@
 <configuration>
 	<appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
 	  <encoder>
-	    <pattern>%date{ISO8601} %-5level %logger{36} - %msg%n</pattern>
+	    <pattern>%date{ISO8601} %-5level %logger{50}.%M\(%line\) - %msg%n</pattern>
 	  </encoder>
 	</appender>
 	
 	<logger name="com.github.jarlakxen.reactive" level="DEBUG" />
 
-	<root level="INFO">
+	<root level="DEBUG">
 		<appender-ref ref="STDOUT" />
 	</root>
 </configuration>

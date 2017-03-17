@@ -10,7 +10,7 @@ import akka.util.ByteString
 object FtpClient {
 
   def apply()(implicit system: ActorSystem): ActorRef = system.actorOf(Props(classOf[client.FtpProtocolManager]))
-  
+
   trait ConnectionMode
   case object ActiveMode extends ConnectionMode
   case object PassiveMode extends ConnectionMode
@@ -41,19 +41,18 @@ object FtpClient {
   case class DirListing(files: List[EntryInfo])
   case object DirFail
 
-  
   trait EntryInfo {
-      def name: String
-      def size: Long
-      def user: String
-      def group: String
-      def mode: String
+    def name: String
+    def size: Long
+    def user: String
+    def group: String
+    def mode: String
   }
   case class FileInfo(name: String, size: Long, user: String, group: String, mode: String) extends EntryInfo
   case class DirInfo(name: String, size: Long, user: String, group: String, mode: String) extends EntryInfo
 
-  val ResponsePattern = "(\\d+) (.*)\r\n".r
-  val MultilineResponsePattern = "(\\d+)\\-(.*)\r?\n?.*\r?\n?".r
+  val SingleLineResponsePattern = "(\\d+) (.*)$".r
+  val MultilineResponsePattern = "(\\d+)\\-(.*)$".r
   val ListPattern = "([drwsx\\-]+)\\s+(\\d+)\\s+(\\w+)\\s+(\\w+)\\s+(\\d+)\\s+(\\w{3})\\s+(\\d+)\\s+([\\d:]+)\\s+([\\w\\.]+)\r?".r
   val DefaultFtpPort = 21
 

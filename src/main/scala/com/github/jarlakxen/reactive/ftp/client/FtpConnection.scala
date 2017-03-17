@@ -23,21 +23,10 @@ class FtpConnection(val addr: InetSocketAddress) extends FSM[FtpConnection.State
 
   when(ReceivePlain) {
     case Event(Tcp.Received(data), ctx: PlainData) => {
-      data.utf8String match {
-        case FtpClient.ResponsePattern(rawCode, rawMessage) => {
-          log.debug(s"Received $rawCode $rawMessage")
-          context.parent ! Response(rawCode.toInt, rawMessage)
-          stay()
-        }
-        case FtpClient.MultilineResponsePattern(rawCode, rawMessage) => {
-          log.debug(s"Received multiline $rawCode $rawMessage")
-          goto(ReceiveMulti) using MultiData(ctx.connection, new StringBuffer(rawMessage))
-        }
-        case other => {
-          log.error(s"Unexpected message $other.")
-          stay()
-        }
+      extractMessage(data.utf8String.lines.toList).foreach{
+        case (code, message) => context.parent ! Response(code, message)
       }
+      stay()
     }
     case Event(Request(line), ctx: PlainData) => {
       log.debug(s"Sending $line")
@@ -50,27 +39,31 @@ class FtpConnection(val addr: InetSocketAddress) extends FSM[FtpConnection.State
       stay()
     }
   }
-
-  when(ReceiveMulti) {
-    case Event(Tcp.Received(data), ctx: MultiData) => {
-      data.utf8String match {
-        case FtpClient.ResponsePattern(rawCode, rawMessage) => {
-          log.debug(s"Received EOL $rawCode $rawMessage")
-          val bytes = rawMessage.getBytes
-          ctx.data.append(rawMessage)
-          context.parent ! Response(rawCode.toInt, ctx.data.toString)
-          goto(ReceivePlain) using PlainData(ctx.connection)
-        }
-        case rawMessage: String => {
-          ctx.data.append(rawMessage)
-          stay()
-        }
-      }
-    }
-  }
 }
 
 object FtpConnection {
+  import FtpClient._
+  
+  private[FtpConnection] def extractMessage(dataLines: List[String]): List[(Int, String)] = {
+
+    def extractMultiLineData(accMsg: String, multiLineData: List[String]): (String, List[String]) =
+      multiLineData match {
+        case MultilineResponsePattern(_, msg) :: tail => extractMultiLineData(accMsg + "\n" + msg, tail)
+        case SingleLineResponsePattern(code, msg) :: tail => (accMsg + "\n" + msg, tail)
+        case Nil => (accMsg, Nil)
+      }
+    
+    dataLines match {
+      case SingleLineResponsePattern(code, msg) :: tail => 
+        (code.toInt, msg) :: extractMessage(tail)
+        
+      case MultilineResponsePattern(code, msg) :: tail => 
+        val (multiLineMessage, rest) = extractMultiLineData(msg, tail)
+        (code.toInt, multiLineMessage) :: extractMessage(rest)
+     
+      case Nil => Nil
+    }
+  }
 
   case class Request(line: String)
   case class Response(code: Int, line: String)
@@ -78,7 +71,6 @@ object FtpConnection {
   trait Data
   case object Uninitialized extends Data
   case class PlainData(connection: ActorRef) extends Data
-  case class MultiData(connection: ActorRef, data: StringBuffer) extends Data
 
   trait State
   case object Connecting extends State

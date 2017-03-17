@@ -7,6 +7,8 @@ import scala.concurrent.duration._
 import com.github.jarlakxen.reactive.ftp.FtpClient
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl._
+import akka.stream.scaladsl.Tcp._
+import scala.concurrent.Future
 import scala.util._
 
 class FtpProtocolManager extends FSM[FtpProtocolManager.State, FtpProtocolManager.Data] with Stash {
@@ -87,13 +89,21 @@ class FtpProtocolManager extends FSM[FtpProtocolManager.State, FtpProtocolManage
         log.debug(s"Connecting to ${addr.getHostString}:${addr.getPort} for transfer data.")
       }
 
-      stay() using ctx.copy(dataAddr = address)
+      self ! StartTransfer
+
+      stay() using ctx.copy(socketFlow = address.map(Tcp().outgoingConnection(_)))
     }
-    case Event(FtpConnection.Response(code, message), TransferContext(_, path, Some(addr), replayTo)) if code == 150 => {
+    case Event(StartTransfer, TransferContext(_, path, Some(socketFlow), replayTo)) => {
       log.debug("Sending incoming transfer file to parent.")
-      replayTo ! FtpClient.DownloadInProgress(Source.repeat(ByteString.empty).via(Tcp().outgoingConnection(addr)))
+      replayTo ! FtpClient.DownloadInProgress(Source.repeat(ByteString.empty).via(socketFlow))
       stay()
     }
+
+    case Event(FtpConnection.Response(code, message), ctx: TransferContext) if code == 150 => {
+      log.debug("Accepted data connection.")
+      stay()
+    }
+
     case Event(FtpConnection.Response(code, message), ctx: TransferContext) if code == 226 => {
       log.debug("Closing data connection.")
       ctx.replayTo ! FtpClient.DownloadSuccess
@@ -111,7 +121,7 @@ class FtpProtocolManager extends FSM[FtpProtocolManager.State, FtpProtocolManage
       ctx.connection ! FtpConnection.Request("QUIT")
       stay()
     }
-    case Event(FtpConnection.Response(code, message), ctx: DisconnectContext) if code == 221=> {
+    case Event(FtpConnection.Response(code, message), ctx: DisconnectContext) if code == 221 => {
       ctx.replayTo ! FtpClient.Disconnected
       goto(Idle) using Uninitialized
     }
@@ -138,10 +148,13 @@ class FtpProtocolManager extends FSM[FtpProtocolManager.State, FtpProtocolManage
         log.debug(s"Connecting to $addr for transfer data.")
       }
 
-      stay() using ctx.copy(dataAddr = address)
+      self ! StartTransfer
+
+      stay() using ctx.copy(socketFlow = address.map(Tcp().outgoingConnection(_)))
     }
-    case Event(FtpConnection.Response(code, message), TransferContext(_, path, Some(addr), _)) if code == 150 => {
-      Source.repeat(ByteString.empty).via(Tcp().outgoingConnection(addr)).toMat(Sink.fold(ByteString.empty)(_ ++ _))(Keep.right).run().andThen {
+
+    case Event(StartTransfer, TransferContext(_, path, Some(socketFlow), _)) => {
+      Source.repeat(ByteString.empty).via(socketFlow).toMat(Sink.fold(ByteString.empty)(_ ++ _))(Keep.right).run().andThen {
         case Success(data) =>
           log.debug("Processing incoming data.")
           self ! TransferBytes(data)
@@ -150,6 +163,12 @@ class FtpProtocolManager extends FSM[FtpProtocolManager.State, FtpProtocolManage
       }
       stay()
     }
+
+    case Event(FtpConnection.Response(code, message), ctx: TransferContext) if code == 150 => {
+      log.debug("Accepted data connection.")
+      stay()
+    }
+
     case Event(FtpConnection.Response(code, message), ctx: TransferContext) if code == 226 => {
       log.debug("Closing data connection.")
       stay()
@@ -167,7 +186,8 @@ class FtpProtocolManager extends FSM[FtpProtocolManager.State, FtpProtocolManage
       unstashAll()
       goto(Active) using ConnectionContext(ctx.connection)
     }
-    case Event(_, _) => {
+    case Event(res, _) => {
+      log.debug(s"Stashing: $res")
       stash()
       stay()
     }
@@ -198,9 +218,10 @@ object FtpProtocolManager {
   case class Initializing(commander: ActorRef, authentication: Option[FtpClient.Authentication]) extends Data
   case class AuthenticationContext(commander: ActorRef, connection: ActorRef, authentication: FtpClient.Authentication) extends Data
   case class ConnectionContext(connection: ActorRef) extends Data
-  case class TransferContext(connection: ActorRef, path: String, dataAddr: Option[InetSocketAddress] = None, replayTo: ActorRef) extends Data
+  case class TransferContext(connection: ActorRef, path: String, socketFlow: Option[Flow[ByteString, ByteString, Future[OutgoingConnection]]] = None, replayTo: ActorRef) extends Data
   case class DisconnectContext(connection: ActorRef, replayTo: ActorRef) extends Data
   case class TransferBytes(data: ByteString)
+  case object StartTransfer
 
   trait State
   case object Idle extends State
