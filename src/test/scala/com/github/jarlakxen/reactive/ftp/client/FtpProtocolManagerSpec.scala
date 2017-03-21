@@ -9,9 +9,6 @@ import org.specs2.mutable.SpecificationLike
 import org.specs2.runner.JUnitRunner
 import org.specs2.specification.AfterAll
 
-import com.github.jarlakxen.reactive.ftp.FTPContext
-import com.github.jarlakxen.reactive.ftp.FTPDir
-import com.github.jarlakxen.reactive.ftp.FTPFile
 import com.github.jarlakxen.reactive.ftp.FtpClient
 
 import akka.actor.ActorSystem
